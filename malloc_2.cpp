@@ -70,12 +70,12 @@ void* scalloc(size_t num, size_t size){
     if (num == 0 || size == 0 || num*size > pow(10, 8)){
         return NULL;
     }
-    void* ptr = smalloc(num*size);
-    if (!ptr){
+    void* p = smalloc(num*size);
+    if (!p){
         return NULL;
     }
-    memset(ptr, 0, size*num);
-    return ptr;
+    memset(p, 0, size*num);
+    return p;
 }
 
 
@@ -89,5 +89,18 @@ void sfree(void* p){
 
 
 void* srealloc(void* oldp, size_t size){
-    
+    if (size == 0 || size > pow(10, 8)){
+        return NULL;
+    }
+    struct MallocMtadata* oldMeta = (struct MallocMtadata*)oldp - sizeof(struct MallocMtadata);
+    if (oldMeta->size >= size){
+        return oldp;
+    }
+    void* p = smalloc(size);
+    if (!p){
+        return NULL;
+    }
+    memcpy(p, oldp, oldMeta->size);
+    sfree(oldp);
+    return p;
 }
