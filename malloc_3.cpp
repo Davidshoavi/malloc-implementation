@@ -45,15 +45,14 @@ int getOrder(size_t size){}
 void addFreeBlockToOrders(int order, struct MallocMtadata* block){}
 
 
-void split(int splitValue, int order, struct MallocMtadata* block){ // block is thr first block on the list!
+void split(int splitValue, int order, struct MallocMtadata* block){ // block is the first block on the list!
     int splitedBlocksize;
     struct MallocMtadata* temp;
+    orders[order] = block->next_order;
+    block->next_order->prev_order = nullptr;
     while (splitValue > 0){
         splitedBlocksize = pow(2, order-1)*128;
-        if (block->next_order){
-            orders[order] = block->next_order;
-            block->next_order->prev_order = nullptr;
-        }
+        
         block->size = splitedBlocksize;
         block->next_order = nullptr;
         temp = block->next;

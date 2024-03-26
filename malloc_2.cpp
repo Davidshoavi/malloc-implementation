@@ -18,7 +18,7 @@ size_t num_allocated_bytes = 0;
 struct MallocMtadata* getFreeBlock(size_t size){
     struct MallocMtadata* temp = ptr;
     while (temp){
-        if (temp->is_free && temp->size <= _size_meta_data()+size){
+        if (temp->is_free && temp->size >= _size_meta_data()+size){
             return temp;
         }
         temp = temp->next;
@@ -74,7 +74,7 @@ void* smalloc(size_t size){
         }
     }
     block->is_free = false;
-    return block + sizeof(struct MallocMtadata);
+    return block + _size_meta_data();
 }
 
 
@@ -99,7 +99,6 @@ void sfree(void* p){
     meta->is_free = true;
     num_free_blocks++;
     num_free_bytes += meta->size;
-
 }
 
 
