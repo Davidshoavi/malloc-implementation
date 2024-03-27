@@ -19,7 +19,15 @@ struct MallocMtadata* orders[MAX_ORDER+1];
 
 
 
+void align_memory(){
+    void* ptr = sbrk(0);
+    size_t x = ((size_t)ptr) % (32*128*1024);
+    sbrk(32*128*1024 - x);
+}
+
+
 void initialHeap(){
+
     heap_ptr = (struct MallocMtadata*)sbrk(131072*32);
     orders[10] = heap_ptr;
     struct MallocMtadata* temp = heap_ptr;
@@ -108,4 +116,38 @@ void* scalloc(size_t num, size_t size){
     }
     memset(p, 0, size*num);
     return p;
+}
+
+
+void outOfOrder(struct MallocMtadata* meta){} // gets meta and removes it from orders
+
+
+void merge(void* p){
+    struct MallocMtadata* meta = (struct MallocMtadata*)p;
+    size_t size = meta->size;
+    struct MallocMtadata* buddy = (struct MallocMtadata*)((size_t)p^size);
+    while (size < 128*1024 && size == buddy->size && buddy->is_free){
+        outOfOrder(buddy);
+        if (p < buddy){ // p before buddy
+            meta->next = buddy->next;
+        }
+        else{ // buddy before p
+            buddy->next = meta->next;
+            meta = buddy;
+        }
+        meta->size *= 2;
+        meta->is_free = true;
+        buddy = (struct MallocMtadata*)((size_t)meta^meta->size);
+    }
+}
+
+
+void sfree(void* p){
+    if(!p){
+        return;
+    }
+    struct MallocMtadata* meta = (struct MallocMtadata*)p;
+    meta->is_free = true;
+    outOfOrder(meta);
+    merge(p);
 }
