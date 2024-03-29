@@ -11,6 +11,7 @@ struct MallocMtadata{
     struct MallocMtadata* prev;
     struct MallocMtadata* next_order;
     struct MallocMtadata* prev_order;
+    unsigned char order;
 };
 
 
@@ -27,7 +28,6 @@ void align_memory(){
 
 
 void initialHeap(){
-
     heap_ptr = (struct MallocMtadata*)sbrk(131072*32);
     orders[10] = heap_ptr;
     struct MallocMtadata* temp = heap_ptr;
@@ -108,6 +108,7 @@ struct MallocMtadata* getFreeBlock(size_t size){
     }
     struct MallocMtadata* block = orders[order];
     split(splitValue, order, block);
+    block->order = (unsigned char)order;
     block->is_free = false;
     return block;
 }
@@ -141,7 +142,32 @@ void* scalloc(size_t num, size_t size){
 }
 
 
-void outOfOrder(struct MallocMtadata* meta){} // gets meta and removes it from orders
+void outOfOrder(struct MallocMtadata* meta){ // gets meta and removes it from orders
+    struct MallocMtadata* temp = orders[meta->order];
+    if (!temp){
+        return;
+    }
+    while(temp && temp == meta){
+        temp = temp->next_order;
+    }
+    if (!temp){
+        return;
+    }
+    if (temp->prev_order && temp->next_order){
+        temp->prev_order->next_order = temp->next_order;
+        temp->next_order->prev_order = temp->prev_order;
+        return;
+    }
+    if (temp->prev_order){
+        temp->prev_order->next_order = nullptr;
+        return;
+    }
+    if (temp->next_order){
+        temp->next_order->prev_order = nullptr;
+        return;
+    }
+    orders[meta->order] = nullptr;
+}
 
 
 void merge(void* p){
