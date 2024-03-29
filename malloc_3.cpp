@@ -131,7 +131,7 @@ void* smalloc(size_t size){
     if (size == 0 || size > pow(10, 8)){
         return NULL;
     }
-    if (size >= pow(2, MAX_ORDER)*128){
+    if (size >= ORDER_SIZE(MAX_ORDER)){
         //use mmap
         return; // return a block!
     }
