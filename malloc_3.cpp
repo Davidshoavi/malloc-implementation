@@ -50,7 +50,29 @@ void initialHeap(){
 int getOrder(size_t size){}
 
 
-void addFreeBlockToOrders(int order, struct MallocMtadata* block){}
+void addFreeBlockToOrders(int order, struct MallocMtadata* block){
+    if (!orders[order]){
+        orders[order] = block;
+        block->next_order = nullptr;
+        block->prev_order = nullptr;
+        return;
+    }
+    struct MallocMtadata* temp =  orders[order];
+    struct MallocMtadata* temp_prev;
+    while (temp && temp < block){
+        temp_prev = temp;
+        temp = temp->next_order;
+    }
+    if (!temp){
+        temp_prev->next_order = block;
+        block->prev_order = temp_prev;
+        return;
+    }
+    block->prev_order = temp->prev_order;
+    block->next_order = temp;
+    block->prev_order->next_order = block;
+    temp->prev_order = block;
+}
 
 
 void split(int splitValue, int order, struct MallocMtadata* block){ // block is the first block on the list!
