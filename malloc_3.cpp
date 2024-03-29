@@ -2,6 +2,7 @@
 #include <cmath>
 #include <string.h>
 #define MAX_ORDER 10
+#define ORDER_SIZE(i) (int)pow(2, i)*128
 
 
 struct MallocMtadata{
@@ -28,26 +29,32 @@ void align_memory(){
 
 
 void initialHeap(){
-    heap_ptr = (struct MallocMtadata*)sbrk(131072*32);
+    heap_ptr = (struct MallocMtadata*)sbrk(ORDER_SIZE(MAX_ORDER)*32);
     orders[10] = heap_ptr;
     struct MallocMtadata* temp = heap_ptr;
     struct MallocMtadata* tempPrev;
     for (int i = 0; i<31; i++){
-        temp->next = temp + 131072;
+        temp->next = temp + ORDER_SIZE(MAX_ORDER);
         temp->next_order = temp->next;
-        temp->size = 131072;
+        temp->size = ORDER_SIZE(MAX_ORDER);
         temp->is_free = true;
         tempPrev = temp;
         temp = temp->next;
         temp->prev = tempPrev;
         temp->prev_order = temp->prev;
     }
-    temp->size = 131072;
+    temp->size = ORDER_SIZE(MAX_ORDER);
     temp->is_free = true;
 }
 
 
-int getOrder(size_t size){}
+int getOrder(size_t size){
+    for (int i=0; i<=10; i++){
+        if (size <= ORDER_SIZE(i)){
+            return (unsigned char)i;
+        }
+    }
+}
 
 
 void addFreeBlockToOrders(int order, struct MallocMtadata* block){
@@ -100,7 +107,7 @@ void split(int splitValue, int order, struct MallocMtadata* block){ // block is 
 
 
 struct MallocMtadata* getFreeBlock(size_t size){
-    int order = getOrder(size);
+    int order = getOrder(size + _size_meta_data());
     int splitValue = 0;
     while (!orders[order]){ // should while stop? need to wait for piazza answer.
         order++;
@@ -113,7 +120,7 @@ struct MallocMtadata* getFreeBlock(size_t size){
     split(splitValue, order, block);
     block->order = (unsigned char)order;
     block->is_free = false;
-    return block;
+    return block + _size_meta_data();
 }
 
 
@@ -197,8 +204,13 @@ void sfree(void* p){
     if(!p){
         return;
     }
-    struct MallocMtadata* meta = (struct MallocMtadata*)p;
+    struct MallocMtadata* meta = (struct MallocMtadata*)p - _size_meta_data();
     meta->is_free = true;
     outOfOrder(meta);
     merge(p);
+}
+
+
+size_t _size_meta_data(){
+    return sizeof(struct MallocMtadata);
 }
