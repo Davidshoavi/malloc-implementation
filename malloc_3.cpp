@@ -105,6 +105,9 @@ struct MallocMtadata* getFreeBlock(size_t size){
     while (!orders[order]){ // should while stop? need to wait for piazza answer.
         order++;
         splitValue++;
+        if (order == 11){
+            return NULL;
+        }
     }
     struct MallocMtadata* block = orders[order];
     split(splitValue, order, block);
