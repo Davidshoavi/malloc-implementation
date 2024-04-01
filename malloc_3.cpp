@@ -26,6 +26,26 @@ size_t _size_meta_data(){
 }
 
 
+size_t _num_free_blocks(){
+    return 0;
+}
+
+size_t _num_free_bytes(){
+    return 0;
+}
+
+size_t _num_allocated_blocks(){
+    return 0;
+}
+
+size_t _num_allocated_bytes(){
+    return 0;
+}
+
+size_t _num_meta_data_bytes(){
+    return 0 * _size_meta_data();
+}
+
 
 void align_memory(){
     void* ptr = sbrk(0);
