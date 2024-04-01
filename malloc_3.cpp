@@ -3,7 +3,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #define MAX_ORDER 10
-#define ORDER_SIZE(i) (int)pow(2, i)*128
+#define ORDER_SIZE(i) (size_t)pow(2, i)*128
 
 
 struct MallocMtadata{
@@ -264,7 +264,7 @@ void* srealloc(void* oldp, size_t size){
     }
     if (checkMergeRealloc(oldMeta, size)){
         p = sreallocMerge(oldMeta, size);
-        p = p + _size_meta_data();
+        p = (void*)((size_t)p + _size_meta_data());
         memcpy(p, oldp, oldMeta->size);
         sfree(oldp);
         return p;
