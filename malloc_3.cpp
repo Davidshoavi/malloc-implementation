@@ -61,6 +61,7 @@ unsigned char getOrder(size_t size){
             return (unsigned char)i;
         }
     }
+    return (unsigned char)11;
 }
 
 
@@ -246,7 +247,7 @@ bool checkMergeRealloc(struct MallocMtadata* meta, size_t target_size){
 
 
 void* sreallocMerge(struct MallocMtadata* meta, size_t target_size){ // return meta pointer!
-
+    return NULL;
 }
 
 
