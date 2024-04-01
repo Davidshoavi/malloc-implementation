@@ -102,9 +102,12 @@ void sfree(void* p){
 }
 
 
-void* srealloc(void* oldp, size_t size){
+void* srealloc(void* oldp, size_t size){ // add
     if (size == 0 || size > pow(10, 8)){
         return NULL;
+    }
+    if (!oldp){
+        // handle
     }
     struct MallocMtadata* oldMeta = (struct MallocMtadata*)oldp - _size_meta_data();
     if (oldMeta->size >= size){

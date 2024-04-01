@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <cmath>
 #include <string.h>
+#include <sys/mman.h>
 #define MAX_ORDER 10
 #define ORDER_SIZE(i) (int)pow(2, i)*128
 
@@ -18,6 +19,8 @@ struct MallocMtadata{
 
 struct MallocMtadata* heap_ptr = nullptr;
 struct MallocMtadata* orders[MAX_ORDER+1];
+struct MallocMtadata* mmap_ptr = nullptr;
+
 
 
 
@@ -29,6 +32,7 @@ void align_memory(){
 
 
 void initialHeap(){
+    align_memory();
     heap_ptr = (struct MallocMtadata*)sbrk(ORDER_SIZE(MAX_ORDER)*32);
     orders[10] = heap_ptr;
     struct MallocMtadata* temp = heap_ptr;
@@ -48,8 +52,8 @@ void initialHeap(){
 }
 
 
-int getOrder(size_t size){
-    for (int i=0; i<=10; i++){
+unsigned char getOrder(size_t size){
+    for (int i=0; i<=MAX_ORDER; i++){
         if (size <= ORDER_SIZE(i)){
             return (unsigned char)i;
         }
@@ -124,6 +128,12 @@ struct MallocMtadata* getFreeBlock(size_t size){
 }
 
 
+void addToMmap(struct MallocMtadata* meta){
+    meta->next_order = mmap_ptr;
+    mmap_ptr = meta;
+}
+
+
 void* smalloc(size_t size){
     if (!heap_ptr){
         initialHeap();
@@ -131,9 +141,12 @@ void* smalloc(size_t size){
     if (size == 0 || size > pow(10, 8)){
         return NULL;
     }
-    if (size >= ORDER_SIZE(MAX_ORDER)){
-        //use mmap
-        return; // return a block!
+    if (size + _size_meta_data() >= ORDER_SIZE(MAX_ORDER)){
+        struct MallocMtadata* meta = (struct MallocMtadata*) mmap(NULL, size + _size_meta_data(), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        meta->size = size; //check
+        meta->is_free = false;
+        addToMmap(meta);
+        return meta + _size_meta_data();
     }
     return getFreeBlock(size);
 }
@@ -157,7 +170,7 @@ void outOfOrder(struct MallocMtadata* meta){ // gets meta and removes it from or
     if (!temp){
         return;
     }
-    while(temp && temp == meta){
+    while(temp && temp != meta){
         temp = temp->next_order;
     }
     if (!temp){
@@ -180,13 +193,12 @@ void outOfOrder(struct MallocMtadata* meta){ // gets meta and removes it from or
 }
 
 
-void merge(void* p){
-    struct MallocMtadata* meta = (struct MallocMtadata*)p;
-    size_t size = meta->size;
-    struct MallocMtadata* buddy = (struct MallocMtadata*)((size_t)p^size);
-    while (size < 128*1024 && size == buddy->size && buddy->is_free){
+void merge(struct MallocMtadata* meta){
+    size_t size = meta->size + _size_meta_data();
+    struct MallocMtadata* buddy = (struct MallocMtadata*)((size_t)meta^size);
+    while (size < 128*1024 && size == buddy->size + _size_meta_data() && buddy->is_free){
         outOfOrder(buddy);
-        if (p < buddy){ // p before buddy
+        if (meta < buddy){ // p before buddy
             meta->next = buddy->next;
         }
         else{ // buddy before p
@@ -194,20 +206,70 @@ void merge(void* p){
             meta = buddy;
         }
         meta->size *= 2;
+        meta->size += _size_meta_data();
         meta->is_free = true;
+        size = meta->size + _size_meta_data();
         buddy = (struct MallocMtadata*)((size_t)meta^meta->size);
     }
 }
 
 
-void sfree(void* p){
+void sfree(void* p){ //free mmap!
     if(!p){
         return;
     }
     struct MallocMtadata* meta = (struct MallocMtadata*)p - _size_meta_data();
     meta->is_free = true;
     outOfOrder(meta);
-    merge(p);
+    merge(meta);
+}
+
+
+bool checkMergeRealloc(struct MallocMtadata* meta, size_t target_size){
+    size_t size = meta->size + _size_meta_data();
+    struct MallocMtadata* buddy = (struct MallocMtadata*)((size_t)meta^size);
+    while (size < ORDER_SIZE(MAX_ORDER) && size == buddy->size + _size_meta_data() && buddy->is_free){
+        if (meta >= buddy){ // buddy before p
+            meta = buddy;
+        }
+        if (size >= target_size){
+            return true;
+        }
+        size *= 2;
+        buddy = (struct MallocMtadata*)((size_t)meta^meta->size);
+    }
+    return false;
+}
+
+
+void* sreallocMerge(struct MallocMtadata* meta, size_t target_size){ // return meta pointer!
+
+}
+
+
+void* srealloc(void* oldp, size_t size){
+    if (size == 0 || size > pow(10, 8)){
+        return NULL;
+    }
+    if (!oldp){
+        // handle
+    }
+    void* p;
+    struct MallocMtadata* oldMeta = (struct MallocMtadata*)((size_t)oldp - _size_meta_data());
+    if (oldMeta->size >= size){
+        return oldp;
+    }
+    if (checkMergeRealloc(oldMeta, size)){
+        p = sreallocMerge(oldMeta, size);
+        p = p + _size_meta_data();
+        memcpy(p, oldp, oldMeta->size);
+        sfree(oldp);
+        return p;
+    }
+    p = smalloc(size);
+    memcpy(p, oldp, oldMeta->size);
+    sfree(oldp);
+    return p;
 }
 
 
