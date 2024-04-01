@@ -21,6 +21,9 @@ struct MallocMtadata* heap_ptr = nullptr;
 struct MallocMtadata* orders[MAX_ORDER+1];
 struct MallocMtadata* mmap_ptr = nullptr;
 
+size_t _size_meta_data(){
+    return sizeof(struct MallocMtadata);
+}
 
 
 
@@ -270,9 +273,4 @@ void* srealloc(void* oldp, size_t size){
     memcpy(p, oldp, oldMeta->size);
     sfree(oldp);
     return p;
-}
-
-
-size_t _size_meta_data(){
-    return sizeof(struct MallocMtadata);
 }
