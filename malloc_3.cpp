@@ -21,31 +21,42 @@ struct MallocMtadata* heap_ptr = nullptr;
 struct MallocMtadata* orders[MAX_ORDER+1];
 struct MallocMtadata* mmap_ptr = nullptr;
 
+
+size_t num_free_blocks = 0;
+size_t num_free_bytes = 0;
+size_t num_allocated_bytes = 0;
+size_t num_allocated_blocks = 0;
+size_t num_overall_bytes = 0;
+
+
 size_t _size_meta_data(){
     return sizeof(struct MallocMtadata);
 }
 
 
 size_t _num_free_blocks(){
-    return 0;
+    return num_free_blocks;
 }
 
 size_t _num_free_bytes(){
-    return 0;
+    return num_free_bytes;
 }
 
 size_t _num_allocated_blocks(){
-    return 0;
+    return num_allocated_blocks;
 }
 
 size_t _num_allocated_bytes(){
-    return 0;
+    return _num_overall_bytes() - _size_meta_data() * _num_allocated_blocks();
 }
 
 size_t _num_meta_data_bytes(){
-    return 0 * _size_meta_data();
+    return _num_allocated_blocks() * _size_meta_data();
 }
 
+size_t _num_overall_bytes(){
+    return num_overall_bytes;
+}
 
 void align_memory(){
     void* ptr = sbrk(0);
@@ -56,6 +67,10 @@ void align_memory(){
 
 void initialHeap(){
     align_memory();
+    num_free_blocks = 32;
+    num_allocated_blocks = 32;
+    num_free_bytes = 32*(ORDER_SIZE(MAX_ORDER) - _size_meta_data());
+    num_overall_bytes += ORDER_SIZE(MAX_ORDER)*32;
     heap_ptr = (struct MallocMtadata*)sbrk(ORDER_SIZE(MAX_ORDER)*32);
     orders[10] = heap_ptr;
     struct MallocMtadata* temp = heap_ptr;
@@ -116,9 +131,12 @@ void split(int splitValue, int order, struct MallocMtadata* block){ // block is 
     orders[order] = block->next_order;
     block->next_order->prev_order = nullptr;
     while (splitValue > 0){
+        num_free_blocks++;
+        num_allocated_blocks++;
+        num_free_bytes -= _size_meta_data();
         splitedBlocksize = pow(2, order-1)*128;
         
-        block->size = splitedBlocksize;
+        block->size = splitedBlocksize - _size_meta_data();
         block->next_order = nullptr;
         temp = block->next;
         block->next = (struct MallocMtadata*) block + splitedBlocksize;
@@ -137,7 +155,7 @@ void split(int splitValue, int order, struct MallocMtadata* block){ // block is 
 struct MallocMtadata* getFreeBlock(size_t size){
     int order = getOrder(size + _size_meta_data());
     int splitValue = 0;
-    while (!orders[order]){ // should while stop? need to wait for piazza answer.
+    while (!orders[order]){
         order++;
         splitValue++;
         if (order == 11){
@@ -148,6 +166,8 @@ struct MallocMtadata* getFreeBlock(size_t size){
     split(splitValue, order, block);
     block->order = (unsigned char)order;
     block->is_free = false;
+    num_free_blocks--;
+    num_free_bytes -= block->size;
     return block + _size_meta_data();
 }
 
@@ -189,36 +209,6 @@ void* scalloc(size_t num, size_t size){
 }
 
 
-/*
-void outOfOrder(struct MallocMtadata* meta){ // gets meta and removes it from orders  // fix!
-    struct MallocMtadata* temp = orders[meta->order];
-    if (!temp){
-        return;
-    }
-    while(temp && temp != meta){
-        temp = temp->next_order;
-    }
-    if (!temp){
-        return;
-    }
-    if (temp->prev_order && temp->next_order){
-        temp->prev_order->next_order = temp->next_order;
-        temp->next_order->prev_order = temp->prev_order;
-        return;
-    }
-    if (temp->prev_order){
-        temp->prev_order->next_order = nullptr;
-        return;
-    }
-    if (temp->next_order){
-        temp->next_order->prev_order = nullptr;
-        return;
-    }
-    orders[meta->order] = nullptr;
-}
-*/
-
-
 void outOfOrder(struct MallocMtadata* meta, bool reg){ // gets meta and removes it from orders  // fix!
     if (meta->prev_order){
         meta->prev_order->next_order = meta->next_order;
@@ -249,6 +239,9 @@ void merge(struct MallocMtadata* meta){
             buddy->next = meta->next;
             meta = buddy;
         }
+        num_free_blocks--;
+        num_allocated_blocks--;
+        num_free_bytes += _size_meta_data();
         meta->size *= 2;
         meta->size += _size_meta_data();
         meta->is_free = true;
@@ -272,6 +265,8 @@ void sfree(void* p){ //free mmap!
         return;
     }
     meta->is_free = true;
+    num_free_blocks++;
+    num_free_bytes += meta->size;
     outOfOrder(meta, true);
     merge(meta);
 }
@@ -306,6 +301,9 @@ void* sreallocMerge(struct MallocMtadata* meta, size_t target_size){
             buddy->next = meta->next;
             meta = buddy;
         }
+        num_free_blocks--;
+        num_allocated_blocks--;
+        num_free_bytes += _size_meta_data();
         meta->size *= 2;
         meta->size += _size_meta_data();
         meta->is_free = true;
@@ -321,7 +319,7 @@ void* srealloc(void* oldp, size_t size){
         return NULL;
     }
     if (!oldp){
-        // handle
+        return NULL;
     }
     void* p;
     struct MallocMtadata* oldMeta = (struct MallocMtadata*)((size_t)oldp - _size_meta_data());
@@ -332,7 +330,6 @@ void* srealloc(void* oldp, size_t size){
         p = sreallocMerge(oldMeta, size);
         p = (void*)((size_t)p + _size_meta_data());
         memcpy(p, oldp, oldMeta->size);
-        sfree(oldp);
         return p;
     }
     p = smalloc(size);
