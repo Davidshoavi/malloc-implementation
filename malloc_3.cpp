@@ -304,7 +304,7 @@ void* srealloc(void* oldp, size_t size){
         return NULL;
     }
     if (!oldp){
-        return NULL;
+        return smalloc(size);
     }
     void* p;
     struct MallocMtadata* oldMeta = (struct MallocMtadata*)((size_t)oldp - _size_meta_data());

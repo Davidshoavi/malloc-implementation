@@ -3,7 +3,7 @@
 #include <string.h>
 
 
-/*
+
 #include <stddef.h>
 #include <assert.h>
 
@@ -28,7 +28,7 @@
     } while (0)
 
 
-*/
+
 
 
 struct MallocMtadata{
@@ -73,7 +73,7 @@ size_t _num_meta_data_bytes(){
 struct MallocMtadata* getFreeBlock(size_t size){
     struct MallocMtadata* temp = ptr;
     while (temp){
-        if (temp->is_free && temp->size >= _size_meta_data()+size){
+        if (temp->is_free && temp->size >= size){
             return temp;
         }
         temp = temp->next;
@@ -165,7 +165,7 @@ void* srealloc(void* oldp, size_t size){
         return NULL;
     }
     if (!oldp){
-        // handle
+        return smalloc(size);
     }
     struct MallocMtadata* oldMeta = (struct MallocMtadata*)((size_t)oldp - _size_meta_data());
     if (oldMeta->size >= size){
@@ -181,33 +181,35 @@ void* srealloc(void* oldp, size_t size){
 }
 
 
-/*
 int main(){
     verify_blocks(0, 0, 0, 0);
 
     void *base = sbrk(0);
-    char *a = (char *)smalloc(1);
+    int *a = (int *)srealloc(nullptr, 10 * sizeof(int));
     REQUIRE(a != nullptr);
-    void *after = sbrk(0);
-    REQUIRE(1 + _size_meta_data() == (size_t)after - (size_t)base);
 
-    verify_blocks(1, 1, 0, 0);
+    for (int i = 0; i < 10; i++)
+    {
+        a[i] = i;
+    }
+
+    verify_blocks(1, 10 * sizeof(int), 0, 0);
     verify_size(base);
 
-    char *b = (char *)smalloc(10);
+    int *b = (int *)srealloc(a, 100 * sizeof(int));
     REQUIRE(b != nullptr);
-    after = sbrk(0);
-    REQUIRE(11 + _size_meta_data() * 2 == (size_t)after - (size_t)base);
+    REQUIRE(b != a);
+    for (int i = 0; i < 10; i++)
+    {
+        REQUIRE(b[i] == i);
+    }
 
-    verify_blocks(2, 11, 0, 0);
+    verify_blocks(2, sizeof(int) * 110, 1, sizeof(int) * 10);
     verify_size(base);
 
-    sfree(a);
-    verify_blocks(2, 11, 1, 1);
-    verify_size(base);
     sfree(b);
-    verify_blocks(2, 11, 2, 11);
+    verify_blocks(2, sizeof(int) * 110, 2, sizeof(int) * 110);
     verify_size(base);
 }
 
-*/
+
