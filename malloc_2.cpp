@@ -100,7 +100,7 @@ void* smalloc(size_t size){
         }
     }
     block->is_free = false;
-    return block + _size_meta_data();
+    return (void *)((size_t)block + _size_meta_data());
 }
 
 
