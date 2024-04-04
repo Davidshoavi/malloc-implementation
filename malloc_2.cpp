@@ -3,7 +3,7 @@
 #include <string.h>
 
 
-
+/*
 #include <stddef.h>
 #include <assert.h>
 
@@ -26,7 +26,7 @@
         void *after = sbrk(0);                                                                                         \
         REQUIRE(_num_allocated_bytes() + _size_meta_data() * _num_allocated_blocks() == (size_t)after - (size_t)base); \
     } while (0)
-
+*/
 
 
 
@@ -180,7 +180,7 @@ void* srealloc(void* oldp, size_t size){
     return p;
 }
 
-
+/*
 int main(){
     verify_blocks(0, 0, 0, 0);
 
@@ -212,4 +212,4 @@ int main(){
     verify_size(base);
 }
 
-
+*/

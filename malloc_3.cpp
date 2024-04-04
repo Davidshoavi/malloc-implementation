@@ -66,7 +66,7 @@ void initialHeap(){
     align_memory();
     num_free_blocks = 32;
     num_allocated_blocks = 32;
-    num_free_bytes = 32*(ORDER_SIZE(MAX_ORDER) - _size_meta_data());
+    num_free_bytes = (size_t)32*(ORDER_SIZE(MAX_ORDER) - _size_meta_data());
     num_overall_bytes += ORDER_SIZE(MAX_ORDER)*32;
     heap_ptr = (struct MallocMtadata*)sbrk(ORDER_SIZE(MAX_ORDER)*32);
     orders[10] = heap_ptr;
@@ -132,12 +132,12 @@ void split(int splitValue, int order, struct MallocMtadata* block){ // block is 
         num_free_bytes -= _size_meta_data();
 
         splitedBlocksize = ORDER_SIZE(order-1);
-        block->size = splitedBlocksize - _size_meta_data();
+        block->size = (size_t)splitedBlocksize - _size_meta_data();
         block->next_order = nullptr;
         buddy = (struct MallocMtadata*) block + splitedBlocksize;
         buddy->is_free = true;
         addFreeBlockToOrders(order-1, buddy);
-        buddy->size = splitedBlocksize - _size_meta_data();
+        buddy->size = (size_t)splitedBlocksize - _size_meta_data();
         order--;
         splitValue--;
     }
@@ -161,7 +161,7 @@ struct MallocMtadata* getFreeBlock(size_t size){
     block->is_free = false;
     num_free_blocks--;
     num_free_bytes -= block->size;
-    return block + _size_meta_data();
+    return (struct MallocMtadata*)((size_t)block + _size_meta_data());
 }
 
 
@@ -183,7 +183,7 @@ void* smalloc(size_t size){
         meta->size = size; //check
         meta->is_free = false;
         addToMmap(meta);
-        return meta + _size_meta_data();
+        return (struct MallocMtadata*)((size_t)meta + _size_meta_data());
     }
     return getFreeBlock(size);
 }
@@ -244,7 +244,7 @@ void sfree(void* p){ //free mmap!
     if (!p){
         return;
     }
-    struct MallocMtadata* meta = (struct MallocMtadata*)p - _size_meta_data();
+    struct MallocMtadata* meta = (struct MallocMtadata*)((size_t)p - _size_meta_data());
     if (meta->is_free){
         return;
     }
