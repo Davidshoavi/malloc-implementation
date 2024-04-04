@@ -2,6 +2,34 @@
 #include <cmath>
 #include <string.h>
 
+/*
+#include <stddef.h>
+#include <assert.h>
+
+#define REQUIRE(bool) assert(bool)
+#define MAX_ALLOCATION_SIZE (1e8)
+
+#define verify_blocks(allocated_blocks, allocated_bytes, free_blocks, free_bytes)                                      \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        REQUIRE(_num_allocated_blocks() == allocated_blocks);                                                          \
+        REQUIRE(_num_allocated_bytes() == allocated_bytes);                                                            \
+        REQUIRE(_num_free_blocks() == free_blocks);                                                                    \
+        REQUIRE(_num_free_bytes() == free_bytes);                                                                      \
+        REQUIRE(_num_meta_data_bytes() == _size_meta_data() * allocated_blocks);                                       \
+    } while (0)
+
+#define verify_size(base)                                                                                              \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        void *after = sbrk(0);                                                                                         \
+        REQUIRE(_num_allocated_bytes() + _size_meta_data() * _num_allocated_blocks() == (size_t)after - (size_t)base); \
+    } while (0)
+
+*/
+
+
+
 struct MallocMtadata{
     size_t size;
     bool is_free;
@@ -121,7 +149,7 @@ void sfree(void* p){
     if (!p){
         return;
     }
-    struct MallocMtadata* meta = (struct MallocMtadata*)p - _size_meta_data();
+    struct MallocMtadata* meta = (struct MallocMtadata*)((size_t)p - _size_meta_data());
     if (meta->is_free){
         return;
     }
@@ -131,14 +159,14 @@ void sfree(void* p){
 }
 
 
-void* srealloc(void* oldp, size_t size){ // add
+void* srealloc(void* oldp, size_t size){
     if (size == 0 || size > pow(10, 8)){
         return NULL;
     }
     if (!oldp){
         // handle
     }
-    struct MallocMtadata* oldMeta = (struct MallocMtadata*)oldp - _size_meta_data();
+    struct MallocMtadata* oldMeta = (struct MallocMtadata*)((size_t)oldp - _size_meta_data());
     if (oldMeta->size >= size){
         return oldp;
     }
@@ -151,3 +179,19 @@ void* srealloc(void* oldp, size_t size){ // add
     return p;
 }
 
+/*
+
+int main(){
+    verify_blocks(0, 0, 0, 0);
+    void *base = sbrk(0);
+    char *a = (char *)smalloc(10);
+    REQUIRE(a != nullptr);
+    REQUIRE((size_t)base + _size_meta_data() == (size_t)a);
+    verify_blocks(1, 10, 0, 0);
+    verify_size(base);
+    sfree(a);
+    verify_blocks(1, 10, 1, 10);
+    verify_size(base);
+}
+
+*/
