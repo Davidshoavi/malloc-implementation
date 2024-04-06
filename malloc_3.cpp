@@ -5,9 +5,11 @@
 #define MAX_ORDER 10
 #define ORDER_SIZE(i) (size_t)pow(2, i)*128
 
-
-
-
+/*
+//#include <stddef.h>
+//#include <unistd.h>
+//#include <sys/wait.h>
+//#include <unistd.h>
 size_t _num_free_bytes();
 size_t _num_free_blocks();
 size_t _num_allocated_bytes();
@@ -69,7 +71,7 @@ void verify_block_by_order(int order0free, int order0used, int order1free, int o
     }
 
 
-
+*/
 
 
 
@@ -142,15 +144,15 @@ void initialHeap(){
     struct MallocMtadata* temp = heap_ptr;
     struct MallocMtadata* tempPrev;
     for (int i = 0; i<31; i++){
-        //temp->next = temp + ORDER_SIZE(MAX_ORDER);
         temp->next_order = (struct MallocMtadata*)((size_t)temp + (size_t)ORDER_SIZE(MAX_ORDER));
-        temp->size = ORDER_SIZE(MAX_ORDER);
+        temp->size = ORDER_SIZE(MAX_ORDER) - _size_meta_data();
         temp->is_free = true;
         tempPrev = temp;
         temp = temp->next_order;
         temp->prev_order = tempPrev;
+        temp->order = (unsigned char) 10;
     }
-    temp->size = ORDER_SIZE(MAX_ORDER);
+    temp->size = ORDER_SIZE(MAX_ORDER) - _size_meta_data();
     temp->is_free = true;
 }
 
@@ -246,6 +248,9 @@ struct MallocMtadata* getFreeBlock(size_t size){
 void addToMmap(struct MallocMtadata* meta){
     meta->next_order = mmap_ptr;
     mmap_ptr = meta;
+    if (meta->next_order){
+        meta->next_order->prev_order = meta;
+    }
 }
 
 
@@ -263,7 +268,7 @@ void* smalloc(size_t size){
         addToMmap(meta);
         num_allocated_blocks++;
         num_overall_bytes += size + _size_meta_data();
-        return (struct MallocMtadata*)((size_t)meta + _size_meta_data());
+        return (void*)((size_t)meta + _size_meta_data());
     }
     return getFreeBlock(size);
 }
@@ -312,18 +317,14 @@ void merge(struct MallocMtadata* meta){
         num_free_blocks--;
         num_allocated_blocks--;
         num_free_bytes += _size_meta_data();
-        meta->size *= 2;
+        meta->size *= (size_t)2;
         meta->size += _size_meta_data();
         meta->is_free = true;
         meta->order = (unsigned char)((int)meta->order + 1);
         size = meta->size + _size_meta_data();
         buddy = (struct MallocMtadata*)((size_t)meta^size);
     }
-    /*
-    num_free_bytes += _size_meta_data();
-    meta->size += _size_meta_data();
     addFreeBlockToOrders(meta->order, meta);
-    */
 }
 
 
@@ -335,7 +336,7 @@ void sfree(void* p){ //free mmap!
     if (meta->is_free){
         return;
     }
-    if (meta->size + _size_meta_data() >= ORDER_SIZE(MAX_ORDER)){
+    if (meta->size + _size_meta_data() > (size_t)ORDER_SIZE(MAX_ORDER)){
         num_allocated_blocks--;
         num_overall_bytes -= meta->size + _size_meta_data();
         outOfOrder(meta, false);
@@ -415,53 +416,52 @@ void* srealloc(void* oldp, size_t size){
 
 
 
-
+/*
 int main(){
-     void * ptr;
-    ptr = smalloc(128*pow(2,0) -64);
-    verify_block_by_order(1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,31,0,0,0);
-    sfree(ptr);
-    verify_block_by_order(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,32,0,0,0);
-    ptr = smalloc(128*pow(2,1) -64);
-    verify_block_by_order(0,0,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,31,0,0,0);
-    sfree(ptr);
-    verify_block_by_order(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,32,0,0,0);
-    ptr = smalloc(128*pow(2,2) -64);
-    verify_block_by_order(0,0,0,0,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,0,31,0,0,0);
-    sfree(ptr);
-    verify_block_by_order(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,32,0,0,0);
-    ptr = smalloc(128*pow(2,3) -64);
-    verify_block_by_order(0,0,0,0,0,0,1,1,1,0,1,0,1,0,1,0,1,0,1,0,31,0,0,0);
-    sfree(ptr);
-    verify_block_by_order(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,32,0,0,0);
-    ptr = smalloc(128*pow(2,4) -64);
-    verify_block_by_order(0,0,0,0,0,0,0,0,1,1,1,0,1,0,1,0,1,0,1,0,31,0,0,0);
-    sfree(ptr);
-    verify_block_by_order(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,32,0,0,0);
-    ptr = smalloc(128*pow(2,5) -64);
-    verify_block_by_order(0,0,0,0,0,0,0,0,0,0,1,1,1,0,1,0,1,0,1,0,31,0,0,0);
-    sfree(ptr);
-    verify_block_by_order(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,32,0,0,0);
-    ptr = smalloc(128*pow(2,6) -64);
-    verify_block_by_order(0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,1,0,1,0,31,0,0,0);
-    sfree(ptr);
-    verify_block_by_order(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,32,0,0,0);
-    ptr = smalloc(128*pow(2,7) -64);
-    verify_block_by_order(0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,1,0,31,0,0,0);
-    sfree(ptr);
-    verify_block_by_order(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,32,0,0,0);
-    ptr = smalloc(128*pow(2,8) -64);
-    verify_block_by_order(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,31,0,0,0);
-    sfree(ptr);
-    verify_block_by_order(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,32,0,0,0);
-    ptr = smalloc(128*pow(2,9) -64);
-    verify_block_by_order(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,31,0,0,0);
-    sfree(ptr);
-    verify_block_by_order(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,32,0,0,0);
-    ptr = smalloc(128*pow(2,10) -64);
-    verify_block_by_order(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,31,1,0,0);
-    sfree(ptr);
-    verify_block_by_order(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,32,0,0,0);
+    //std::vector<void*> allocations;
+    void* allocations[64];
+    int i=1;
+    for (; i < 64; i++)
+    {
+        void* ptr = smalloc(MAX_ELEMENT_SIZE+100);
+        REQUIRE(ptr != nullptr);
+        allocations[i] = ptr;
+        //allocations.push_back(ptr);
+        verify_block_by_order(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32,0,i,i*(MAX_ELEMENT_SIZE+100));
+    }
+
+    for (i = 63; i >= 1; i--)
+    {
+        void* ptr = allocations[i];
+        allocations[i] = nullptr;
+        sfree(ptr);
+        verify_block_by_order(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32,0,i-1,(i-1)*(MAX_ELEMENT_SIZE+100));
+    }
+
+    // Verify that all blocks are merged into a single large block
+    verify_block_by_order(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0);
+
+
+    for (i = 1; i < 64; i++)
+    {
+        void* ptr = smalloc(MAX_ELEMENT_SIZE+100);
+        REQUIRE(ptr != nullptr);
+        allocations[i] = ptr;
+        //allocations.push_back(ptr);
+        verify_block_by_order(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32,0,i,i*(MAX_ELEMENT_SIZE+100));
+    }
+
+    int j = 63;
+    for (i = 1; i < 64; i++)
+    {
+        void* ptr = allocations[i];
+        allocations[i] = nullptr;
+        sfree(ptr);
+        j--;
+        verify_block_by_order(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32,0,j,j*(MAX_ELEMENT_SIZE+100));
+    }
+    verify_block_by_order(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0);
 }
 
+*/
 
