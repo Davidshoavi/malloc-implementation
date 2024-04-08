@@ -6,6 +6,7 @@
 #define ORDER_SIZE(i) (size_t)pow(2, i)*128
 
 
+
 struct MallocMtadata{
     size_t size;
     bool is_free;
@@ -287,10 +288,11 @@ bool checkMergeRealloc(struct MallocMtadata* meta, size_t target_size){
         if (meta >= buddy){ // buddy before meta
             meta = buddy;
         }
+        size *= 2;
         if (size >= target_size + _size_meta_data()){
             return true;
         }
-        size *= 2;
+        //size *= 2;
         buddy = (struct MallocMtadata*)((size_t)meta^size);
     }
     return false;
